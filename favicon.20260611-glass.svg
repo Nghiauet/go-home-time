@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Go Home Time">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#32ade6"/>
+      <stop offset="0.48" stop-color="#007aff"/>
+      <stop offset="1" stop-color="#5856d6"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="face" cx="0.34" cy="0.28" r="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.98"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.7"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#tile)"/>
+  <rect width="64" height="64" rx="15" fill="url(#sheen)"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+  <circle cx="32" cy="32" r="22" fill="url(#face)" stroke="#ffffff" stroke-opacity="0.9" stroke-width="2"/>
+  <path d="M32 13v3.5M51 32h-3.5M32 51v-3.5M13 32h3.5" stroke="#5d6478" stroke-opacity="0.55" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M32 32l1.3 9.9" stroke="#171a2b" stroke-width="5" stroke-linecap="round"/>
+  <path d="M32 32H19.5" stroke="#171a2b" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="3.2" fill="#007aff"/>
+</svg>

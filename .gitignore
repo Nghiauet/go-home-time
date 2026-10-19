@@ -1,0 +1,4 @@
+.playwright-mcp/
+.codex/
+.agents/
+node_modules/

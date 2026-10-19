@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e8edf9">
+  <title>Come-in Dashboard - Go Home Time</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.20260611-glass.svg">
+  <link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.20260610-glass.css">
+  <link rel="stylesheet" href="/dashboard.20260610-glass.css">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true">
+    <div class="blob blob-a"></div>
+    <div class="blob blob-b"></div>
+    <div class="blob blob-c"></div>
+    <div class="blob blob-d"></div>
+    <div class="grain"></div>
+  </div>
+  <main class="dashboard">
+    <header class="dash-hero">
+      <div class="dash-hero-top">
+        <p class="kicker">Team analytics</p>
+        <nav class="dash-nav">
+          <a class="dash-link" href="/">&larr; Calculator</a>
+          <button id="refresh-button" type="button">Refresh</button>
+        </nav>
+      </div>
+      <h1>Come in <span>over time</span></h1>
+      <p id="dash-summary" class="dash-summary">Loading dashboard...</p>
+    </header>
+
+    <div id="dash-empty" class="dash-empty" hidden>
+      <p>No come-in times have been recorded yet.</p>
+      <a class="dash-link" href="/">Add today's time on the calculator &rarr;</a>
+    </div>
+
+    <div id="dash-content" class="dash-content" hidden>
+      <section class="card chart-card" aria-labelledby="trend-title">
+        <div class="card-head">
+          <div>
+            <p class="kicker">Trend</p>
+            <h2 id="trend-title">Arrival time per day</h2>
+          </div>
+        </div>
+        <p class="card-note">Lower is earlier. Toggle a name in the legend to focus.</p>
+        <div class="chart-box">
+          <canvas id="trend-chart" aria-label="Arrival time per day, per person"></canvas>
+        </div>
+      </section>
+
+      <section class="card chart-card" aria-labelledby="ranking-title">
+        <div class="card-head">
+          <div>
+            <p class="kicker">Ranking</p>
+            <h2 id="ranking-title">Average come-in, earliest first</h2>
+          </div>
+        </div>
+        <div class="chart-box chart-box-ranking">
+          <canvas id="ranking-chart" aria-label="Average arrival time per person"></canvas>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="stats-title">
+        <div class="card-head">
+          <div>
+            <p class="kicker">Per person</p>
+            <h2 id="stats-title">Summary stats</h2>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Days</th>
+                <th scope="col">Average</th>
+                <th scope="col">Earliest</th>
+                <th scope="col">Latest</th>
+                <th scope="col">On time</th>
+              </tr>
+            </thead>
+            <tbody id="stats-body"></tbody>
+          </table>
+        </div>
+        <p class="card-note">On time means coming in by 09:30 (the end of the flexible window).</p>
+      </section>
+
+      <section class="card" aria-labelledby="heatmap-title">
+        <div class="card-head">
+          <div>
+            <p class="kicker">Daily</p>
+            <h2 id="heatmap-title">Come-in heatmap</h2>
+          </div>
+        </div>
+        <div class="heatmap-legend" aria-hidden="true">
+          <span class="legend-swatch swatch-early"></span><span>Early</span>
+          <span class="legend-swatch swatch-window"></span><span>In window</span>
+          <span class="legend-swatch swatch-late"></span><span>Late</span>
+          <span class="legend-swatch swatch-none"></span><span>No record</span>
+        </div>
+        <div class="heatmap-scroll">
+          <div id="heatmap" class="heatmap"></div>
+        </div>
+      </section>
+    </div>
+
+    <p id="dash-status" class="dash-status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script src="/chart.umd.min.js"></script>
+  <script src="/dashboard.20260618-min.js" defer></script>
+</body>
+</html>
