@@ -38,13 +38,13 @@ curl http://127.0.0.1:46403/api/health
 curl http://127.0.0.1:46403/api/people
 ```
 
-Use `node --check server.js` before rebuilding after server edits. For frontend edits, verify in the browser and use the curl checks above to confirm the container still serves the app.
+Use `node --check server.js` and `node --test test/*.test.js` before rebuilding after server edits. The tests start copies of `server.js` on free loopback ports with temp data files (no Docker, no npm deps; never the `go-home-time-data` volume). For frontend edits, verify in the browser and use the curl checks above to confirm the container still serves the app.
 
 ## Coding Style & Naming Conventions
 Use plain JavaScript with CommonJS on the server. Keep two-space indentation, double quotes, semicolons, and small helper functions matching the existing style. Use `camelCase` for variables/functions and `UPPER_SNAKE_CASE` for constants. Keep CSS class names kebab-case.
 
 ## Testing Guidelines
-There is no automated test suite yet. For any change, run syntax checks where applicable, rebuild the container, then smoke test with curl. For API changes, test success and failure cases such as invalid `arrival`, missing `name`, oversized or invalid JSON, and delete/update behavior.
+`test/server.test.js` (node:test, black-box over HTTP) covers the calculator, input validation, static-file containment and crash cases; add a case there for server changes. For any change, run syntax checks where applicable, rebuild the container, then smoke test with curl. For API changes, test success and failure cases such as invalid `arrival`, missing `name`, oversized or invalid JSON, and delete/update behavior.
 
 ## Commit & Pull Request Guidelines
 This checkout does not include Git history, so use concise English imperative commits such as `Add board validation` or `Update local run docs`. Pull requests should describe the user-facing change, list local verification commands and results, note data/schema effects for `/data/people.json`, and include screenshots for UI changes.

@@ -433,6 +433,19 @@ async function readJsonBody(request) {
   }
 }
 
+function httpError(status, message) {
+  return Object.assign(new Error(message), { status });
+}
+
+// decodeURIComponent throws URIError on a stray "%"; that is the client's fault (400).
+function decodePathPart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw httpError(400, "Malformed URL.");
+  }
+}
+
 async function handleApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/health") {
     sendJson(response, 200, { ok: true });
@@ -504,7 +517,7 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === "DELETE" && url.pathname.startsWith("/api/people/")) {
-    const name = normalizeName(decodeURIComponent(url.pathname.slice("/api/people/".length)));
+    const name = normalizeName(decodePathPart(url.pathname.slice("/api/people/".length)));
     const payload = await withStoreLock(async () => {
       const { store } = await readStore();
       store.people = store.people.filter((person) => keyForName(person.name) !== keyForName(name));
@@ -521,7 +534,7 @@ async function handleApi(request, response, url) {
 }
 
 async function serveStatic(request, response, url) {
-  const decodedPath = decodeURIComponent(url.pathname);
+  const decodedPath = decodePathPart(url.pathname);
   const requestPath = decodedPath === "/"
     ? "/index.html"
     : decodedPath === "/dashboard"
@@ -529,7 +542,9 @@ async function serveStatic(request, response, url) {
       : decodedPath;
   const filePath = path.normalize(path.join(PUBLIC_DIR, requestPath));
 
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  // Compare against "public/" (with the separator): a bare prefix check also
+  // matched siblings such as /app/public-old via "/..%2Fpublic-old%2F...".
+  if (!filePath.startsWith(PUBLIC_DIR + path.sep)) {
     response.writeHead(403);
     response.end("Forbidden");
     return;
@@ -540,13 +555,31 @@ async function serveStatic(request, response, url) {
     if (!stat.isFile()) throw Object.assign(new Error("Not found"), { code: "ENOENT" });
 
     const extension = path.extname(filePath);
-    response.writeHead(200, {
-      "Content-Type": contentTypes[extension] || "application/octet-stream",
-      "Cache-Control": extension === ".html" ? "no-store" : "no-cache",
-      "Referrer-Policy": "no-referrer-when-downgrade",
-      "X-Content-Type-Options": "nosniff",
+    // Send headers only once the file is open, and handle stream errors: an
+    // unhandled 'error' event (file unreadable or removed after stat) used to
+    // crash the whole process.
+    const stream = createReadStream(filePath);
+    stream.once("open", () => {
+      response.writeHead(200, {
+        "Content-Type": contentTypes[extension] || "application/octet-stream",
+        "Cache-Control": extension === ".html" ? "no-store" : "no-cache",
+        "Referrer-Policy": "no-referrer-when-downgrade",
+        "X-Content-Type-Options": "nosniff",
+      });
+      stream.pipe(response);
     });
-    createReadStream(filePath).pipe(response);
+    stream.on("error", (error) => {
+      if (response.headersSent) {
+        response.destroy();
+      } else if (error.code === "ENOENT") {
+        response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+        response.end("Not found");
+      } else {
+        console.error(`Static file error for ${requestPath}:`, error.code || error.message);
+        response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+        response.end("Server error");
+      }
+    });
   } catch (error) {
     if (error.code === "ENOENT") {
       response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
@@ -566,7 +599,17 @@ const server = http.createServer(async (request, response) => {
     }
     await serveStatic(request, response, url);
   } catch (error) {
-    sendError(response, error.status || 500, error.message || "Server error.");
+    if (response.headersSent) {
+      response.destroy();
+      return;
+    }
+    if (error.status) {
+      sendError(response, error.status, error.message);
+      return;
+    }
+    // Unexpected: log it, but don't hand internal error text to the client.
+    console.error("Request failed:", error);
+    sendError(response, 500, "Server error.");
   }
 });
 
