@@ -2,6 +2,12 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# Runtime needs only `node`. Drop the package managers the base image ships
+# (npm, npx, corepack, yarn): nothing here calls them, and they only add
+# attack surface and vulnerability-scanner findings.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v* \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
 COPY server.js ./
 COPY index.html styles.20260618-cols.css script.20260618-min.js sw.js favicon.20260611-glass.svg ./public/
 COPY dashboard.html dashboard.20260610-glass.css dashboard.20260618-min.js styles.20260610-glass.css chart.umd.min.js ./public/
