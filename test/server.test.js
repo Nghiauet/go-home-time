@@ -172,6 +172,13 @@ describe("static files and URL handling", () => {
     assert.equal((await request(s.port, "DELETE", "/api/people/%E0%A4%A")).status, 400);
   });
 
+  test("paths that can't name a file are 404 or 400, not 500", async () => {
+    assert.equal((await request(s.port, "GET", "/index.html/x")).status, 404);
+    assert.equal((await request(s.port, "GET", "/" + "a".repeat(300) + ".css")).status, 404);
+    assert.equal((await request(s.port, "GET", "/index%00.html")).status, 400);
+    assert.ok(s.alive(), `server died:\n${s.output()}`);
+  });
+
   test("an unreadable file does not crash the server", { skip: process.getuid?.() === 0 && "root can read mode-000 files" }, async () => {
     const locked = path.join(s.dir, "public", "locked.css");
     await fs.writeFile(locked, "body{}");

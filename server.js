@@ -19,6 +19,7 @@ const NOON_START = 12 * 60 + 30;
 const NOON_END = 13 * 60 + 45;
 const FLEX_DAY_END = 18 * 60 + 45;
 
+const NOT_FOUND_CODES = new Set(["ENOENT", "ENOTDIR", "ENAMETOOLONG"]);
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -559,6 +560,8 @@ async function serveStatic(request, response, url) {
       ? "/dashboard.html"
       : decodedPath;
   const filePath = path.normalize(path.join(PUBLIC_DIR, requestPath));
+  // Paths that can't name a file are a plain 404: missing, a path "under" a
+  // file (/index.html/x -> ENOTDIR), or a name longer than the filesystem allows.
 
   // Compare against "public/" (with the separator): a bare prefix check also
   // matched siblings such as /app/public-old via "/..%2Fpublic-old%2F...".
@@ -589,7 +592,7 @@ async function serveStatic(request, response, url) {
     stream.on("error", (error) => {
       if (response.headersSent) {
         response.destroy();
-      } else if (error.code === "ENOENT") {
+      } else if (NOT_FOUND_CODES.has(error.code)) {
         response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
         response.end("Not found");
       } else {
@@ -599,9 +602,15 @@ async function serveStatic(request, response, url) {
       }
     });
   } catch (error) {
-    if (error.code === "ENOENT") {
+    if (NOT_FOUND_CODES.has(error.code)) {
       response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
       response.end("Not found");
+      return;
+    }
+    // A NUL byte in the decoded path ("%00") makes fs reject the path itself.
+    if (error.code === "ERR_INVALID_ARG_VALUE") {
+      response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end("Bad request");
       return;
     }
     throw error;
