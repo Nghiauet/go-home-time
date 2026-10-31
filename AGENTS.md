@@ -25,7 +25,7 @@ API endpoints:
 - `GET /api/health` returns service health.
 - `GET /api/people` returns all users, today status, leave calculation, and recent history.
 - `GET /api/stats` returns every user's full come-in history plus per-user aggregates (`days`, `avgArrival`, `earliest`, `latest`, `onTimeRate`), and the sorted list of all recorded `dates`. Powers the `/dashboard` page.
-- `POST /api/people` updates today's record with `{ "name": "...", "arrival": "HH:MM" }`. Go-home time is computed as come-in + 9h15m (noon break already included). A legacy `leaveRanges` array is still accepted and validated for backward compatibility, but the UI no longer sends it.
+- `POST /api/people` updates today's record with `{ "name": "...", "arrival": "HH:MM" }`. Go-home time is computed as come-in + 9h15m (noon break already included). A legacy `leaveRanges` array is still accepted and validated for backward compatibility, but the UI no longer sends it. A new name is refused with `409` once the board holds `MAX_PEOPLE` (100) people; updating an existing person always works. Bodies must be a JSON object of at most 16 KB.
 - `DELETE /api/people/:name` removes a user and their history.
 
 ## Build, Test, and Development Commands

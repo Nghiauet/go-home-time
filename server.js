@@ -8,6 +8,10 @@ const DATA_FILE = process.env.DATA_FILE || "/data/people.json";
 const DATA_VERSION = 2;
 const LOCAL_TIME_ZONE = "Asia/Ho_Chi_Minh";
 const MAX_BODY_BYTES = 16 * 1024;
+// The board is public and unauthenticated: without a cap, a loop of POSTs with
+// fresh names grows people.json (rewritten whole on every save) without bound.
+// The team is a handful of people; 100 leaves plenty of room.
+const MAX_PEOPLE = 100;
 const WORK_SPAN_MINUTES = 9 * 60 + 15;
 const CHECK_IN_START = 8 * 60 + 30;
 const CHECK_IN_END = 9 * 60 + 30;
@@ -506,6 +510,9 @@ async function handleApi(request, response, url) {
       const { store } = await readStore();
       const updatedAt = new Date().toISOString();
       const today = localDateKey(updatedAt);
+      if (!findPerson(store, name) && store.people.length >= MAX_PEOPLE) {
+        throw httpError(409, `The board is full (${MAX_PEOPLE} people). Remove someone who left first.`);
+      }
       const person = upsertPerson(store, name, updatedAt);
       person.name = name;
       person.updatedAt = updatedAt;

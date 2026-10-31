@@ -182,3 +182,22 @@ describe("static files and URL handling", () => {
     assert.equal((await request(s.port, "GET", "/api/health")).status, 200);
   });
 });
+
+describe("board size limit", () => {
+  let s;
+  before(async () => { s = await startServer(); });
+  after(async () => { await s.stop(); });
+
+  test("refuses new people past 100, still updates existing ones", async () => {
+    for (let i = 0; i < 100; i += 1) {
+      const res = await postJson(s.port, { name: `Person ${i}`, arrival: "09:00" });
+      assert.equal(res.status, 200, `person ${i}: ${res.text}`);
+    }
+    const full = await postJson(s.port, { name: "One Too Many", arrival: "09:00" });
+    assert.equal(full.status, 409, full.text);
+    const update = await postJson(s.port, { name: "person 5", arrival: "08:45" });
+    assert.equal(update.status, 200, update.text);
+    const people = (await request(s.port, "GET", "/api/people")).json.people;
+    assert.equal(people.length, 100);
+  });
+});
