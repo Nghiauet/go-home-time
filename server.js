@@ -419,18 +419,29 @@ function sendError(response, status, message) {
 }
 
 async function readJsonBody(request) {
-  let body = "";
+  // Collect raw bytes and decode once: `body += chunk` decoded each chunk on its
+  // own, so a Vietnamese letter split across two TCP chunks was stored as U+FFFD junk.
+  const chunks = [];
+  let size = 0;
   for await (const chunk of request) {
-    body += chunk;
-    if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
+    size += chunk.length;
+    if (size > MAX_BODY_BYTES) {
       throw Object.assign(new Error("Request body too large."), { status: 413 });
     }
+    chunks.push(chunk);
   }
+  let body;
   try {
-    return JSON.parse(body || "{}");
+    body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
   } catch {
     throw Object.assign(new Error("Invalid JSON body."), { status: 400 });
   }
+  // `null`, numbers, strings and arrays are valid JSON but not a request; `null`
+  // used to crash on body.name (500).
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw Object.assign(new Error("JSON body must be an object."), { status: 400 });
+  }
+  return body;
 }
 
 function httpError(status, message) {

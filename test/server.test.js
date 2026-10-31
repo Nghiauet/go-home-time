@@ -119,6 +119,18 @@ describe("go-home calculation and board", () => {
     assert.equal((await postJson(s.port, { name: "A", arrival: "25:00" })).status, 400);
     assert.equal((await postJson(s.port, { arrival: "09:00" })).status, 400);
     assert.equal((await postJson(s.port, "{\"name\":")).status, 400);
+    for (const body of ["null", "42", "\"text\"", "[]", "true"]) {
+      const res = await postJson(s.port, body);
+      assert.equal(res.status, 400, `body ${body}: ${res.text}`);
+    }
+  });
+
+  test("a Vietnamese name survives a body split mid-character", async () => {
+    const body = Buffer.from(JSON.stringify({ name: "Nguyễn Ánh", arrival: "09:00" }));
+    const cut = body.indexOf(Buffer.from("ễ")) + 1; // inside the 3-byte "ễ"
+    const res = await request(s.port, "POST", "/api/people", [body.subarray(0, cut), body.subarray(cut)], 50);
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.json.person.name, "Nguyễn Ánh");
   });
 
   test("oversized body is refused with 413", async () => {
