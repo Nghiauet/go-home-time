@@ -12,6 +12,11 @@ const MAX_BODY_BYTES = 16 * 1024;
 // fresh names grows people.json (rewritten whole on every save) without bound.
 // The team is a handful of people; 100 leaves plenty of room.
 const MAX_PEOPLE = 100;
+// Deleting moves a person to a "recently deleted" list so a mis-tap can be
+// undone. Entries are purged on the first write after DELETED_TTL_MS, and the
+// list is capped too, so delete loops can't grow people.json without bound.
+const DELETED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_DELETED = 100;
 const WORK_SPAN_MINUTES = 9 * 60 + 15;
 const CHECK_IN_START = 8 * 60 + 30;
 const CHECK_IN_END = 9 * 60 + 30;
@@ -162,11 +167,20 @@ function isDateKey(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 }
 
-function createStore(people = []) {
+// Test hook only: GO_HOME_TIME_TEST_NOW (an ISO time) fixes the clock used for
+// the recently-deleted list, so tests can check the 7-day purge. Unset in prod.
+function currentTime() {
+  const fixed = process.env.GO_HOME_TIME_TEST_NOW;
+  const date = fixed ? new Date(fixed) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function createStore(people = [], deleted = []) {
   return {
     version: DATA_VERSION,
     timeZone: LOCAL_TIME_ZONE,
     people,
+    deleted,
   };
 }
 
@@ -209,8 +223,59 @@ function personForMap(peopleByKey, name, updatedAt = new Date().toISOString()) {
   return peopleByKey.get(key);
 }
 
+function safeTimestamp(value) {
+  const date = new Date(value || Date.now());
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+// Copy a raw person's records into `person`. Returns true when the raw entry
+// used the old flat (single-record) layout and had to be migrated.
+function fillRecords(person, rawPerson) {
+  if (rawPerson?.records && typeof rawPerson.records === "object") {
+    Object.entries(rawPerson.records).forEach(([dateKey, record]) => {
+      const cleanRecord = normalizedRecord(record);
+      if (!isDateKey(dateKey) || !cleanRecord) return;
+      person.records[dateKey] = cleanRecord;
+      updateTimestamp(person, cleanRecord.updatedAt);
+    });
+    return false;
+  }
+
+  const flatRecord = normalizedRecord(rawPerson);
+  if (!flatRecord) return false;
+
+  const dateKey = localDateKey(flatRecord.updatedAt);
+  person.records[dateKey] = flatRecord;
+  updateTimestamp(person, flatRecord.updatedAt);
+  return true;
+}
+
+// Recently deleted people are kept as separate entries (no merging by name):
+// the same name may be deleted, re-added and deleted again.
+function normalizeDeleted(rawDeleted) {
+  if (!Array.isArray(rawDeleted)) return [];
+
+  return rawDeleted.flatMap((rawPerson) => {
+    const name = normalizeName(rawPerson?.name);
+    const deletedAt = new Date(rawPerson?.deletedAt || "");
+    if (!name || Number.isNaN(deletedAt.getTime())) return [];
+
+    const updatedAt = safeTimestamp(rawPerson?.updatedAt);
+    const person = {
+      name,
+      createdAt: safeTimestamp(rawPerson?.createdAt || updatedAt),
+      updatedAt,
+      records: {},
+    };
+    fillRecords(person, rawPerson);
+    return [{ ...person, deletedAt: deletedAt.toISOString() }];
+  });
+}
+
 function normalizeStore(raw) {
   const peopleByKey = new Map();
+  // A missing `deleted` list is not a migration: files written before soft
+  // delete load as-is and gain the key on the next write.
   let migrated = !raw || raw.version !== DATA_VERSION || !Array.isArray(raw.people);
   const rawPeople = Array.isArray(raw) ? raw : Array.isArray(raw?.people) ? raw.people : [];
 
@@ -218,33 +283,13 @@ function normalizeStore(raw) {
     const name = normalizeName(rawPerson?.name);
     if (!name) return;
 
-    const fallbackUpdatedAt = new Date(rawPerson?.updatedAt || Date.now());
-    const safeUpdatedAt = Number.isNaN(fallbackUpdatedAt.getTime())
-      ? new Date().toISOString()
-      : fallbackUpdatedAt.toISOString();
-    const person = personForMap(peopleByKey, name, safeUpdatedAt);
+    const person = personForMap(peopleByKey, name, safeTimestamp(rawPerson?.updatedAt));
     if (!person) return;
-
-    if (rawPerson?.records && typeof rawPerson.records === "object") {
-      Object.entries(rawPerson.records).forEach(([dateKey, record]) => {
-        const cleanRecord = normalizedRecord(record);
-        if (!isDateKey(dateKey) || !cleanRecord) return;
-        person.records[dateKey] = cleanRecord;
-        updateTimestamp(person, cleanRecord.updatedAt);
-      });
-      return;
-    }
-
-    const flatRecord = normalizedRecord(rawPerson);
-    if (!flatRecord) return;
-
-    migrated = true;
-    const dateKey = localDateKey(flatRecord.updatedAt);
-    person.records[dateKey] = flatRecord;
-    updateTimestamp(person, flatRecord.updatedAt);
+    if (fillRecords(person, rawPerson)) migrated = true;
   });
 
-  return { store: createStore([...peopleByKey.values()]), migrated };
+  const deleted = normalizeDeleted(Array.isArray(raw) ? [] : raw?.deleted);
+  return { store: createStore([...peopleByKey.values()], deleted), migrated };
 }
 
 async function readStore() {
@@ -262,18 +307,34 @@ async function readStore() {
   }
 }
 
+function sortedRecords(person) {
+  return {
+    ...person,
+    records: Object.fromEntries(Object.entries(person.records || {}).sort(([a], [b]) => a.localeCompare(b))),
+  };
+}
+
+// Drop recently deleted entries older than DELETED_TTL_MS, then keep only the
+// newest MAX_DELETED.
+function purgeDeleted(store, now = currentTime()) {
+  const cutoff = now.getTime() - DELETED_TTL_MS;
+  store.deleted = (store.deleted || [])
+    .filter((person) => new Date(person.deletedAt).getTime() > cutoff)
+    .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+    .slice(0, MAX_DELETED);
+}
+
 function orderedStore(store) {
-  return createStore([...store.people]
-    .map((person) => ({
-      ...person,
-      records: Object.fromEntries(Object.entries(person.records || {}).sort(([a], [b]) => a.localeCompare(b))),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name)));
+  return createStore(
+    [...store.people].map(sortedRecords).sort((a, b) => a.name.localeCompare(b.name)),
+    (store.deleted || []).map(sortedRecords).sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)),
+  );
 }
 
 let tmpCounter = 0;
 
 async function writeStore(store) {
+  purgeDeleted(store);
   await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
   const data = `${JSON.stringify(orderedStore(store), null, 2)}\n`;
   // Write to a temp file in the same directory, then rename. rename(2) is atomic
@@ -535,15 +596,56 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  const restoreMatch = /^\/api\/people\/([^/]+)\/restore$/.exec(url.pathname);
+  if (request.method === "POST" && restoreMatch) {
+    request.resume(); // no body needed; drain anything sent
+    const name = normalizeName(decodePathPart(restoreMatch[1]));
+    const payload = await withStoreLock(async () => {
+      const { store } = await readStore();
+      purgeDeleted(store);
+      const key = keyForName(name);
+      // purgeDeleted sorts newest first, so this is the latest deletion.
+      const index = name ? store.deleted.findIndex((person) => keyForName(person.name) === key) : -1;
+      if (index === -1) throw httpError(404, "No recently deleted person with that name.");
+      if (findPerson(store, name)) {
+        throw httpError(409, `${store.deleted[index].name} is already on the board again.`);
+      }
+      if (store.people.length >= MAX_PEOPLE) {
+        throw httpError(409, `The board is full (${MAX_PEOPLE} people). Remove someone who left first.`);
+      }
+
+      const [{ deletedAt, ...person }] = store.deleted.splice(index, 1);
+      store.people.push(person);
+      await writeStore(store);
+
+      const today = localDateKey();
+      return {
+        today,
+        timeZone: LOCAL_TIME_ZONE,
+        person: publicPerson(person, today),
+        people: publicPeople(store, today),
+      };
+    });
+    sendJson(response, 200, payload);
+    return;
+  }
+
   if (request.method === "DELETE" && url.pathname.startsWith("/api/people/")) {
     const name = normalizeName(decodePathPart(url.pathname.slice("/api/people/".length)));
     const payload = await withStoreLock(async () => {
       const { store } = await readStore();
-      store.people = store.people.filter((person) => keyForName(person.name) !== keyForName(name));
+      const person = name ? findPerson(store, name) : null;
+      let deleted = null;
+      if (person) {
+        const deletedAt = currentTime().toISOString();
+        store.people = store.people.filter((candidate) => candidate !== person);
+        store.deleted.push({ ...person, deletedAt });
+        deleted = { name: person.name, deletedAt };
+      }
       await writeStore(store);
 
       const today = localDateKey();
-      return { today, timeZone: LOCAL_TIME_ZONE, people: publicPeople(store, today) };
+      return { today, timeZone: LOCAL_TIME_ZONE, deleted, people: publicPeople(store, today) };
     });
     sendJson(response, 200, payload);
     return;
