@@ -5,6 +5,7 @@ const SAVED_NAME_KEY = "go-home-time-name";
 const NOTIFY_KEY = "go-home-time-notify";
 const NEW_PERSON_VALUE = "__new_person__";
 const BASE_TITLE = "Go Home Time";
+const UNDO_MS = 10 * 1000;
 
 const form = document.querySelector("#person-form");
 const personSelect = document.querySelector("#person-select");
@@ -25,9 +26,16 @@ const countdownOutputs = [...document.querySelectorAll("[data-countdown-output]"
 const notifyToggle = document.querySelector("#notify-toggle");
 const notifyLabel = document.querySelector("#notify-label");
 const notifyStatus = document.querySelector("#notify-status");
+const undoBar = document.querySelector("#undo-bar");
+const undoText = document.querySelector("#undo-text");
+const undoButton = document.querySelector("#undo-button");
 
 let people = [];
 let today = "";
+
+// The last deletion, while its "Hoàn tác" (undo) toast is showing.
+let pendingUndo = null;
+let undoTimer = null;
 
 // Countdown + go-home notification state.
 let activeLeaveMinutes = null;
@@ -439,18 +447,55 @@ async function savePerson() {
   }
 }
 
+function hideUndo() {
+  clearTimeout(undoTimer);
+  undoTimer = null;
+  pendingUndo = null;
+  undoBar.hidden = true;
+}
+
+function showUndo(name, wasSavedName) {
+  clearTimeout(undoTimer);
+  pendingUndo = { name, wasSavedName };
+  undoText.textContent = `Đã xóa ${name}.`;
+  undoButton.disabled = false;
+  undoBar.hidden = false;
+  undoTimer = setTimeout(hideUndo, UNDO_MS);
+}
+
 async function removePerson(name) {
+  if (!window.confirm(`Xóa ${name} và toàn bộ lịch sử giờ vào khỏi bảng?`)) return;
+
   setBoardStatus("Updating board...");
   try {
     const response = await fetch(`/api/people/${encodeURIComponent(name)}`, { method: "DELETE" });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "Could not remove person.");
-    if (keyForName(localStorage.getItem(SAVED_NAME_KEY)) === keyForName(name)) {
-      localStorage.removeItem(SAVED_NAME_KEY);
-    }
+    const wasSavedName = keyForName(localStorage.getItem(SAVED_NAME_KEY)) === keyForName(name);
+    if (wasSavedName) localStorage.removeItem(SAVED_NAME_KEY);
     renderPeople(payload.people || []);
+    if (payload.deleted) showUndo(payload.deleted.name, wasSavedName);
   } catch (error) {
     setBoardStatus(error.message || "Could not remove person.", true);
+  }
+}
+
+async function undoRemove() {
+  if (!pendingUndo) return;
+  const { name, wasSavedName } = pendingUndo;
+  clearTimeout(undoTimer);
+  undoButton.disabled = true;
+  try {
+    const response = await fetch(`/api/people/${encodeURIComponent(name)}/restore`, { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Could not restore person.");
+    if (wasSavedName) localStorage.setItem(SAVED_NAME_KEY, name);
+    hideUndo();
+    renderPeople(payload.people || [], wasSavedName ? name : "");
+    setBoardStatus(`Đã khôi phục ${name}.`);
+  } catch (error) {
+    hideUndo();
+    setBoardStatus(error.message || "Could not restore person.", true);
   }
 }
 
@@ -494,6 +539,7 @@ nameInput.addEventListener("input", renderCalculator);
 arrivalInput.addEventListener("input", renderCalculator);
 nowButton.addEventListener("click", useCurrentTime);
 refreshButton.addEventListener("click", loadPeople);
+undoButton.addEventListener("click", undoRemove);
 if (notifyToggle) notifyToggle.addEventListener("click", toggleNotifications);
 
 if (notificationsEnabled && Notification.permission !== "granted") {

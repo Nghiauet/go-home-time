@@ -7,7 +7,7 @@
   <title>Go Home Time</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.20260611-glass.svg">
   <link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/styles.20260618-cols.css">
+  <link rel="stylesheet" href="/styles.20261101-undo.css">
 </head>
 <body>
   <div class="backdrop" aria-hidden="true">
@@ -88,9 +88,13 @@
       <ul id="people-list" class="people-list" aria-live="polite" aria-atomic="true"></ul>
       <p id="board-status" class="board-status">Loading board...</p>
     </section>
+    <div id="undo-bar" class="undo-bar" role="status" aria-live="polite" hidden>
+      <span id="undo-text"></span>
+      <button id="undo-button" type="button">Hoàn tác</button>
+    </div>
     </div>
   </main>
 
-  <script src="/script.20260618-min.js" defer></script>
+  <script src="/script.20261101-undo.js" defer></script>
 </body>
 </html>

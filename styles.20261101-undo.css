@@ -1,4 +1,4 @@
-/* Go Home Time - minimal glass theme, responsive columns (2026-06-18) */
+/* Go Home Time - minimal glass theme, responsive columns, undo toast (2026-11-01) */
 
 @font-face {
   font-family: "Plus Jakarta Sans";
@@ -742,6 +742,52 @@ button {
 
 .board-status.is-error {
   color: var(--red);
+}
+
+/* "Deleted X. Undo" toast shown for a few seconds after removing a person. */
+.undo-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 20;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 10px 10px 18px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: rgba(23, 26, 43, 0.88);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-soft);
+}
+
+.undo-bar[hidden] {
+  display: none;
+}
+
+#undo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#undo-button {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+}
+
+#undo-button:disabled {
+  opacity: 0.6;
 }
 
 /* ---------------------------------------------------------------------------

@@ -7,9 +7,9 @@ This is a tiny Dockerized Node/static app for calculating flexible office leave 
 - `index.html` contains the single-page app markup (minimal: come-in input → go-home result with live countdown + "Notify me" toggle, the team board, and a link to the dashboard).
 - `sw.js` is the service worker that delivers the go-home notification on mobile (Android Chrome).
 - `dashboard.html` is the team come-in analytics page (served at `/dashboard`).
-- `script.20260618-min.js` contains browser-side calculator and board logic.
+- `script.20261101-undo.js` contains browser-side calculator and board logic.
 - `dashboard.20260618-min.js` fetches `/api/stats` (with transient-failure retry) and renders the dashboard charts.
-- `styles.20260618-cols.css` styles the minimal main page (glass theme; single column on phones, two columns on wide screens). `styles.20260610-glass.css` is the shared base the dashboard is built on; `dashboard.20260610-glass.css` adds dashboard layout.
+- `styles.20261101-undo.css` styles the minimal main page (glass theme; single column on phones, two columns on wide screens). `styles.20260610-glass.css` is the shared base the dashboard is built on; `dashboard.20260610-glass.css` adds dashboard layout.
 - `chart.umd.min.js` is the vendored Chart.js v4 UMD build used by the dashboard.
 - `fonts/` holds the vendored Plus Jakarta Sans woff2 subsets (latin, latin-ext, vietnamese).
 - `Dockerfile` builds the runtime image from `node:22-alpine`.
