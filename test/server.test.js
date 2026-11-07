@@ -1,7 +1,7 @@
 // Black-box tests for server.js: each suite copies server.js into a temp dir
 // next to a small public/ folder (like the Docker image's /app), starts it as
 // a child process on a free port with its own DATA_FILE, and talks HTTP.
-// Run: node --test test/
+// Run: node --test test/*.test.js   (on Node 25, `node --test test/` fails: "Cannot find module")
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs/promises");

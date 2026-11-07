@@ -15,7 +15,7 @@ This is a tiny Dockerized Node/static app for calculating flexible office leave 
 - `Dockerfile` builds the runtime image from `node:22-alpine`.
 - `docker-compose.yml` publishes the app on `127.0.0.1:46403`.
 
-There is no package manifest or separate test directory in the current repo.
+There is no package manifest (no npm dependencies). Tests live in `test/` (`test/server.test.js`, run with Node's built-in runner; see Testing Guidelines).
 
 ## Architecture Overview
 The container runs `node server.js` on port `80`. Static assets are served from `/app/public`; board data is persisted as versioned JSON at `/data/people.json` (`people` plus the `deleted` list; files without `deleted` load as-is and gain it on the next write), backed by the Docker volume `go-home-time-data`. Daily records use `Asia/Ho_Chi_Minh`.
@@ -30,7 +30,7 @@ API endpoints:
 - `POST /api/people/:name/restore` puts the most recently deleted person with that name back, history included. `404` if not in the deleted list, `409` if the name is on the board again or the board is full. The UI offers this as a 10-second "Hoàn tác" (undo) after a delete.
 
 ## Build, Test, and Development Commands
-Run everything against localhost unless a different environment is explicitly requested.
+Run everything against localhost unless a different environment is explicitly requested. On the owner's server, localhost is production: the container on `127.0.0.1:46403` serves the live `gohome` board, so `docker compose up -d --build` is a deploy, and any `POST`/`DELETE` against it changes real people's records. Test write paths with `node --test test/*.test.js` instead.
 
 ```bash
 docker compose up -d --build
@@ -48,7 +48,7 @@ Use plain JavaScript with CommonJS on the server. Keep two-space indentation, do
 `test/server.test.js` (node:test, black-box over HTTP) covers the calculator, input validation, static-file containment and crash cases; add a case there for server changes. For any change, run syntax checks where applicable, rebuild the container, then smoke test with curl. For API changes, test success and failure cases such as invalid `arrival`, missing `name`, oversized or invalid JSON, and delete/update behavior.
 
 ## Commit & Pull Request Guidelines
-This checkout does not include Git history, so use concise English imperative commits such as `Add board validation` or `Update local run docs`. Pull requests should describe the user-facing change, list local verification commands and results, note data/schema effects for `/data/people.json`, and include screenshots for UI changes.
+Git history starts on 2026-10-19 (`Add the live go-home-time code to git`); the remote is `Nghiauet/go-home-time` on GitHub. Use concise English imperative commits such as `Add board validation` or `Update local run docs`. Pull requests should describe the user-facing change, list local verification commands and results, note data/schema effects for `/data/people.json`, and include screenshots for UI changes.
 
 ## Security, Configuration & Deployment Notes
 Keep the service bound to `127.0.0.1:46403` in Compose unless deployment requirements change. The nginx tunnel repo exposes it externally via `gohome.${DOMAIN}` by proxying to that localhost port. Do not commit local data from the `go-home-time-data` volume.
