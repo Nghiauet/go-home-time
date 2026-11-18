@@ -18,7 +18,7 @@ This is a tiny Dockerized Node/static app for calculating flexible office leave 
 There is no package manifest (no npm dependencies). Tests live in `test/` (`test/server.test.js`, run with Node's built-in runner; see Testing Guidelines).
 
 ## Architecture Overview
-The container runs `node server.js` on port `80`. Static assets are served from `/app/public`; board data is persisted as versioned JSON at `/data/people.json` (`people` plus the `deleted` list; files without `deleted` load as-is and gain it on the next write), backed by the Docker volume `go-home-time-data`. Daily records use `Asia/Ho_Chi_Minh`.
+The container runs `node server.js` on port `80`. Static assets are served from `/app/public`; board data is persisted as versioned JSON at `/data/people.json` (`people` plus the `deleted` list; files without `deleted` load as-is and gain it on the next write), backed by the Docker volume `go-home-time_go-home-time-data` (Compose key `go-home-time-data`; the hub's `bin/pre-backup-dumps.sh` copies it nightly). Daily records use `Asia/Ho_Chi_Minh`.
 
 API endpoints:
 
@@ -39,7 +39,7 @@ curl http://127.0.0.1:46403/api/health
 curl http://127.0.0.1:46403/api/people
 ```
 
-Use `node --check server.js` and `node --test test/*.test.js` before rebuilding after server edits. The tests start copies of `server.js` on free loopback ports with temp data files (no Docker, no npm deps; never the `go-home-time-data` volume). `GO_HOME_TIME_TEST_NOW` (an ISO time) fixes the server's clock for the deleted-list purge; it is a test hook, never set it in Compose. For frontend edits, verify in the browser and use the curl checks above to confirm the container still serves the app.
+Use `node --check server.js` and `node --test test/*.test.js` before rebuilding after server edits. The tests start copies of `server.js` on free loopback ports with temp data files (no Docker, no npm deps; never the `go-home-time_go-home-time-data` volume). `GO_HOME_TIME_TEST_NOW` (an ISO time) fixes the server's clock for the deleted-list purge; it is a test hook, never set it in Compose. For frontend edits, verify in the browser and use the curl checks above to confirm the container still serves the app.
 
 ## Coding Style & Naming Conventions
 Use plain JavaScript with CommonJS on the server. Keep two-space indentation, double quotes, semicolons, and small helper functions matching the existing style. Use `camelCase` for variables/functions and `UPPER_SNAKE_CASE` for constants. Keep CSS class names kebab-case.
@@ -51,4 +51,4 @@ Use plain JavaScript with CommonJS on the server. Keep two-space indentation, do
 Git history starts on 2026-10-19 (`Add the live go-home-time code to git`); the remote is `Nghiauet/go-home-time` on GitHub. Use concise English imperative commits such as `Add board validation` or `Update local run docs`. Pull requests should describe the user-facing change, list local verification commands and results, note data/schema effects for `/data/people.json`, and include screenshots for UI changes.
 
 ## Security, Configuration & Deployment Notes
-Keep the service bound to `127.0.0.1:46403` in Compose unless deployment requirements change. The nginx tunnel repo exposes it externally via `gohome.${DOMAIN}` by proxying to that localhost port. Do not commit local data from the `go-home-time-data` volume.
+Keep the service bound to `127.0.0.1:46403` in Compose unless deployment requirements change. The nginx tunnel repo exposes it externally via `gohome.${DOMAIN}` by proxying to that localhost port. Do not commit local data from the `go-home-time_go-home-time-data` volume.
